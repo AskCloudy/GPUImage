@@ -222,6 +222,82 @@ void reportAvailableMemoryForGPUImage(NSString *tag)
     });
 }
 
+////////////////////////////
+// Pheed
+////////////////////////////
+
+- (void)addTargetOnCurrentQueue:(id<GPUImageInput>)newTarget {
+    NSInteger nextAvailableTextureIndex = [newTarget nextAvailableTextureIndex];
+    
+    if([targets containsObject:newTarget])
+    {
+        return;
+    }
+    
+    cachedMaximumOutputSize = CGSizeZero;
+//    runSynchronouslyOnVideoProcessingQueue(^{
+        [self setInputTextureForTarget:newTarget atIndex:nextAvailableTextureIndex];
+        [newTarget setTextureDelegate:self atIndex:nextAvailableTextureIndex];
+        [targets addObject:newTarget];
+        [targetTextureIndices addObject:[NSNumber numberWithInteger:nextAvailableTextureIndex]];
+        
+        allTargetsWantMonochromeData = allTargetsWantMonochromeData && [newTarget wantsMonochromeInput];
+//    });
+    
+    if ([newTarget shouldIgnoreUpdatesToThisTarget])
+    {
+        _targetToIgnoreForUpdates = newTarget;
+    }
+}
+
+- (void)removeTargetOnCurrentQueueWithoutReset:(id<GPUImageInput>)targetToRemove {
+    if(![targets containsObject:targetToRemove])
+    {
+        return;
+    }
+    
+    if (_targetToIgnoreForUpdates == targetToRemove)
+    {
+        _targetToIgnoreForUpdates = nil;
+    }
+    
+    cachedMaximumOutputSize = CGSizeZero;
+    
+    NSInteger indexOfObject = [targets indexOfObject:targetToRemove];
+    NSInteger textureIndexOfTarget = [[targetTextureIndices objectAtIndex:indexOfObject] integerValue];
+    
+//    [targetToRemove setInputTexture:0 atIndex:textureIndexOfTarget];
+//    [targetToRemove setInputSize:CGSizeZero atIndex:textureIndexOfTarget];
+    [targetToRemove setTextureDelegate:nil atIndex:textureIndexOfTarget];
+//    [targetToRemove setInputRotation:kGPUImageNoRotation atIndex:textureIndexOfTarget];
+    
+    [targetTextureIndices removeObjectAtIndex:indexOfObject];
+    [targets removeObject:targetToRemove];
+    [targetToRemove endProcessing];
+}
+
+- (void)removeAllTargetsOnCurrentQueueWithoutReset {
+    cachedMaximumOutputSize = CGSizeZero;
+
+    for (id<GPUImageInput> targetToRemove in targets)
+    {
+        NSInteger indexOfObject = [targets indexOfObject:targetToRemove];
+        NSInteger textureIndexOfTarget = [[targetTextureIndices objectAtIndex:indexOfObject] integerValue];
+        
+//        [targetToRemove setInputTexture:0 atIndex:textureIndexOfTarget];
+//        [targetToRemove setInputSize:CGSizeZero atIndex:textureIndexOfTarget];
+        [targetToRemove setTextureDelegate:nil atIndex:textureIndexOfTarget];
+//        [targetToRemove setInputRotation:kGPUImageNoRotation atIndex:textureIndexOfTarget];
+    }
+    [targets removeAllObjects];
+    [targetTextureIndices removeAllObjects];
+    
+    allTargetsWantMonochromeData = YES;
+}
+
+//////////////////////////////
+/////////////////////////////
+
 #pragma mark -
 #pragma mark Manage the output texture
 
