@@ -194,12 +194,12 @@
         
     if (synchronizedMovieWriter != nil)
     {
-        [synchronizedMovieWriter setVideoInputReadyCallback:^{
-            [weakSelf readNextVideoFrameFromOutput:readerVideoTrackOutput];
+        [synchronizedMovieWriter setVideoInputReadyCallback:^BOOL{
+            return [weakSelf readNextVideoFrameFromOutput:readerVideoTrackOutput];
         }];
 
-        [synchronizedMovieWriter setAudioInputReadyCallback:^{
-            [weakSelf readNextAudioSampleFromOutput:readerAudioTrackOutput];
+        [synchronizedMovieWriter setAudioInputReadyCallback:^BOOL{
+            return [weakSelf readNextAudioSampleFromOutput:readerAudioTrackOutput];
         }];
 
         [synchronizedMovieWriter enableSynchronizationCallbacks];
@@ -244,7 +244,7 @@
     }
 }
 
-- (void)readNextVideoFrameFromOutput:(AVAssetReaderTrackOutput *)readerVideoTrackOutput;
+- (BOOL)readNextVideoFrameFromOutput:(AVAssetReaderTrackOutput *)readerVideoTrackOutput;
 {
     if (reader.status == AVAssetReaderStatusReading)
     {
@@ -281,6 +281,8 @@
             
             CMSampleBufferInvalidate(sampleBufferRef);
             CFRelease(sampleBufferRef);
+            
+            return YES;
         }
         else
         {
@@ -297,11 +299,13 @@
             [self endProcessing];
         }
     }
+    
+    return NO;
 }
 
-- (void)readNextAudioSampleFromOutput:(AVAssetReaderTrackOutput *)readerAudioTrackOutput {
+- (BOOL)readNextAudioSampleFromOutput:(AVAssetReaderTrackOutput *)readerAudioTrackOutput {
     if (audioEncodingIsFinished && !self.playSound) {
-        return;
+        return NO;
     }
 
     if (reader.status == AVAssetReaderStatusReading) {
@@ -322,10 +326,14 @@
             }
             
             CFRelease(audioSampleBufferRef);
+            
+            return YES;
         } else {
             audioEncodingIsFinished = YES;
         }
     }
+    
+    return NO;
 }
 
 - (void)processMovieFrame:(CMSampleBufferRef)movieSampleBuffer; 
@@ -440,8 +448,12 @@
     
     if (synchronizedMovieWriter != nil)
     {
-        [synchronizedMovieWriter setVideoInputReadyCallback:^{}];
-        [synchronizedMovieWriter setAudioInputReadyCallback:^{}];
+        [synchronizedMovieWriter setVideoInputReadyCallback:^BOOL{
+            return NO;
+        }];
+        [synchronizedMovieWriter setAudioInputReadyCallback:^BOOL{
+            return NO;
+        }];
     }
     
     if (audioPlayer != nil){
