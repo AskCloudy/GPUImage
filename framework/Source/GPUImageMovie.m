@@ -363,7 +363,7 @@
                     CFRelease(sampleBufferRef);
                 });
                 
-                return NO;
+                return YES;
             }
             
             if (_playAtActualSpeed)
@@ -423,9 +423,12 @@
             
             CMTime currentSampleTime = CMSampleBufferGetOutputPresentationTimeStamp(audioSampleBufferRef);
             if (CMTIMERANGE_IS_VALID(_trimTimeRange) && !CMTimeRangeContainsTime(_trimTimeRange, currentSampleTime)) {
+                if (self.audioEncodingTarget.shouldInvalidateAudioSampleWhenDone) {
+                    CMSampleBufferInvalidate(audioSampleBufferRef);
+                }
                 CFRelease(audioSampleBufferRef);
                 
-                return NO;
+                return YES;
             }
             
             [self.audioEncodingTarget processAudioBuffer:audioSampleBufferRef];
