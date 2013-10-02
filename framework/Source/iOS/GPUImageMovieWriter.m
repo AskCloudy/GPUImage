@@ -52,6 +52,7 @@ NSString *const kGPUImageColorSwizzlingFragmentShaderString = SHADER_STRING
 @synthesize hasAudioTrack = _hasAudioTrack;
 @synthesize encodingLiveVideo = _encodingLiveVideo;
 @synthesize shouldPassthroughAudio = _shouldPassthroughAudio;
+@synthesize audioSourceFormatHint = _audioSourceFormatHint;
 @synthesize completionBlock;
 @synthesize failureBlock;
 @synthesize videoInputReadyCallback;
@@ -849,7 +850,12 @@ NSString *const kGPUImageColorSwizzlingFragmentShaderString = SHADER_STRING
              nil];*/
         }
         
-        assetWriterAudioInput = [AVAssetWriterInput assetWriterInputWithMediaType:AVMediaTypeAudio outputSettings:audioOutputSettings];
+        if (_audioSourceFormatHint != NULL) {
+            assetWriterAudioInput = [AVAssetWriterInput assetWriterInputWithMediaType:AVMediaTypeAudio outputSettings:audioOutputSettings sourceFormatHint:_audioSourceFormatHint];
+        } else {
+            assetWriterAudioInput = [AVAssetWriterInput assetWriterInputWithMediaType:AVMediaTypeAudio outputSettings:audioOutputSettings];
+        }
+        
         [assetWriter addInput:assetWriterAudioInput];
         assetWriterAudioInput.expectsMediaDataInRealTime = _encodingLiveVideo;
     }
