@@ -30,6 +30,10 @@
  */
 @property(readwrite, nonatomic) BOOL shouldRepeat;
 
+/** This determines whether we should ignore frames and audio samples outside this time range
+ */
+@property(readwrite, nonatomic) CMTimeRange trimTimeRange;
+
 /** This is used to send the delete Movie did complete playing alert
  */
 @property (readwrite, nonatomic, assign) id <GPUImageMovieDelegate>delegate;

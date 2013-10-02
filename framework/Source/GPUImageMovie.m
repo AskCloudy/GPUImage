@@ -39,6 +39,7 @@
 @synthesize playAtActualSpeed = _playAtActualSpeed;
 @synthesize delegate = _delegate;
 @synthesize shouldRepeat = _shouldRepeat;
+@synthesize trimTimeRange = _trimTimeRange;
 
 #pragma mark -
 #pragma mark Initialization and teardown
@@ -354,10 +355,20 @@
         if (sampleBufferRef)
         {
             //NSLog(@"read a video frame: %@", CFBridgingRelease(CMTimeCopyDescription(kCFAllocatorDefault, CMSampleBufferGetOutputPresentationTimeStamp(sampleBufferRef))));
+            
+            CMTime currentSampleTime = CMSampleBufferGetOutputPresentationTimeStamp(sampleBufferRef);
+            if (CMTIMERANGE_IS_VALID(_trimTimeRange) && !CMTimeRangeContainsTime(_trimTimeRange, currentSampleTime)) {
+                runSynchronouslyOnVideoProcessingQueue(^{
+                    CMSampleBufferInvalidate(sampleBufferRef);
+                    CFRelease(sampleBufferRef);
+                });
+                
+                return NO;
+            }
+            
             if (_playAtActualSpeed)
             {
                 // Do this outside of the video processing queue to not slow that down while waiting
-                CMTime currentSampleTime = CMSampleBufferGetOutputPresentationTimeStamp(sampleBufferRef);
                 CMTime differenceFromLastFrame = CMTimeSubtract(currentSampleTime, previousFrameTime);
                 CFAbsoluteTime currentActualTime = CFAbsoluteTimeGetCurrent();
                 
@@ -409,6 +420,14 @@
         if (audioSampleBufferRef)
         {
             //NSLog(@"read an audio frame: %@", CFBridgingRelease(CMTimeCopyDescription(kCFAllocatorDefault, CMSampleBufferGetOutputPresentationTimeStamp(audioSampleBufferRef))));
+            
+            CMTime currentSampleTime = CMSampleBufferGetOutputPresentationTimeStamp(audioSampleBufferRef);
+            if (CMTIMERANGE_IS_VALID(_trimTimeRange) && !CMTimeRangeContainsTime(_trimTimeRange, currentSampleTime)) {
+                CFRelease(audioSampleBufferRef);
+                
+                return NO;
+            }
+            
             [self.audioEncodingTarget processAudioBuffer:audioSampleBufferRef];
             CFRelease(audioSampleBufferRef);
             return YES;
