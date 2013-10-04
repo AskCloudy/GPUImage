@@ -5,9 +5,10 @@
 
 /** Protocol for getting Movie played callback.
  */
-@protocol GPUImageMovieDelegate <NSObject>
+@protocol GPUImageMovieWithAudioDelegate <NSObject>
 
 - (void)didCompletePlayingMovie;
+- (void)didProcessFirstFrame;
 @end
 
 /** Source object for filtering movies
@@ -37,7 +38,7 @@
 
 /** This is used to send the delete Movie did complete playing alert
  */
-@property (readwrite, nonatomic, assign) id <GPUImageMovieDelegate>delegate;
+@property (readwrite, nonatomic, assign) id <GPUImageMovieWithAudioDelegate>delegate;
 
 /// @name Initialization and teardown
 - (id)initWithAsset:(AVAsset *)asset;

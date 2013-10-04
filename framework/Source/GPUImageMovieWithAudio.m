@@ -9,6 +9,7 @@
     CVOpenGLESTextureCacheRef coreVideoTextureCache;
     AVAssetReader *reader;
     BOOL keepLooping;
+    BOOL processedFirstFrame;
     
     GPUImageAudioPlayer *audioPlayer;
     CFAbsoluteTime assetStartTime;
@@ -186,10 +187,12 @@
         [self.audioEncodingTarget setShouldInvalidateAudioSampleWhenDone:YES];
     }
     
-    if ([reader startReading] == NO)
-    {
-        NSLog(@"Error reading from file at URL: %@", weakSelf.url);
-        return;
+    @synchronized(self) {
+        if ([reader startReading] == NO)
+        {
+            NSLog(@"Error reading from file at URL: %@", weakSelf.url);
+            return;
+        }
     }
     
     if (synchronizedMovieWriter != nil)
@@ -226,7 +229,9 @@
         
         if (reader.status == AVAssetWriterStatusCompleted) {
             
-            [reader cancelReading];
+            @synchronized(self) {
+                [reader cancelReading];
+            }
             
             if (keepLooping) {
                 reader = nil;
@@ -248,7 +253,11 @@
 {
     if (reader.status == AVAssetReaderStatusReading)
     {
-        CMSampleBufferRef sampleBufferRef = [readerVideoTrackOutput copyNextSampleBuffer];
+        CMSampleBufferRef sampleBufferRef;
+        @synchronized(self) {
+            sampleBufferRef = [readerVideoTrackOutput copyNextSampleBuffer];
+        }
+        
         if (sampleBufferRef)
         {
             BOOL renderVideoFrame = YES;
@@ -309,7 +318,10 @@
     }
     
     if (reader.status == AVAssetReaderStatusReading) {
-        CMSampleBufferRef audioSampleBufferRef = [readerAudioTrackOutput copyNextSampleBuffer];
+        CMSampleBufferRef audioSampleBufferRef;
+        @synchronized(self) {
+            audioSampleBufferRef = [readerAudioTrackOutput copyNextSampleBuffer];
+        }
         
         if (audioSampleBufferRef) {
             
@@ -435,10 +447,17 @@
         CFAbsoluteTime currentFrameTime = (CFAbsoluteTimeGetCurrent() - startTime);
         NSLog(@"Current frame time : %f ms", 1000.0 * currentFrameTime);
     }
+    
+    if (!processedFirstFrame && self.delegate && [self.delegate respondsToSelector:@selector(didProcessFirstFrame)]) {
+        processedFirstFrame = YES;
+        [self.delegate didProcessFirstFrame];
+    }
 }
 
 - (void)endProcessing;
 {
+    processedFirstFrame = NO;
+    
     keepLooping = NO;
     
     for (id<GPUImageInput> currentTarget in targets)
@@ -464,10 +483,12 @@
 
 - (void)cancelProcessing
 {
-    if (reader) {
-        [reader cancelReading];
+    @synchronized(self) {
+        if (reader) {
+            [reader cancelReading];
+        }
+        [self endProcessing];
     }
-    [self endProcessing];
 }
 
 @end
