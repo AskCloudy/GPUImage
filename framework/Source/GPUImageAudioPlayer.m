@@ -209,7 +209,7 @@ static OSStatus playbackCallback(void *inRefCon,
         audioFormat.mChannelsPerFrame = asbd->mChannelsPerFrame;
         audioFormat.mBitsPerChannel = asbd->mBitsPerChannel;
         
-        NSLog(@"[AudioStreamBasicDescription] updating graph uppon first buffer");
+        NSLog(@"[AudioStreamBasicDescription] updating graph upon first buffer");
         AudioUnitSetProperty(mixerUnit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input, kOutputBus, &audioFormat, oSize);
         AUGraphUpdate(processingGraph, NULL);
     }

@@ -10,6 +10,8 @@
     AVAssetReader *reader;
     BOOL keepLooping;
     BOOL processedFirstFrame;
+    BOOL shouldStopProcessing;
+    BOOL processingStopped;
     
     GPUImageAudioPlayer *audioPlayer;
     CFAbsoluteTime assetStartTime;
@@ -107,6 +109,8 @@
 
 - (void)startProcessing
 {
+    processingStopped = NO;
+    
     if(self.url == nil)
     {
         [self processAsset];
@@ -210,7 +214,7 @@
     else
     {
         assetStartTime = 0.0;
-        while (reader.status == AVAssetReaderStatusReading && (!_shouldRepeat || keepLooping))
+        while (!shouldStopProcessing && reader.status == AVAssetReaderStatusReading && (!_shouldRepeat || keepLooping))
         {
             [weakSelf readNextVideoFrameFromOutput:readerVideoTrackOutput];
             
@@ -226,6 +230,8 @@
             }
             
         }
+        
+        shouldStopProcessing = NO;
         
         if (reader.status == AVAssetWriterStatusCompleted) {
             
@@ -448,7 +454,7 @@
         NSLog(@"Current frame time : %f ms", 1000.0 * currentFrameTime);
     }
     
-    if (!processedFirstFrame && self.delegate && [self.delegate respondsToSelector:@selector(didProcessFirstFrame)]) {
+    if (!processedFirstFrame && !processingStopped && self.delegate && [self.delegate respondsToSelector:@selector(didProcessFirstFrame)]) {
         processedFirstFrame = YES;
         [self.delegate didProcessFirstFrame];
     }
@@ -456,6 +462,8 @@
 
 - (void)endProcessing;
 {
+    processingStopped = YES;
+    
     processedFirstFrame = NO;
     
     keepLooping = NO;
@@ -479,6 +487,8 @@
         [audioPlayer stopPlaying];
         audioPlayer = nil;
     }
+    
+    shouldStopProcessing = YES;
 }
 
 - (void)cancelProcessing
