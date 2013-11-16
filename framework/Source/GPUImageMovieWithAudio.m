@@ -142,56 +142,61 @@
 - (void)processAsset
 {
     __unsafe_unretained GPUImageMovieWithAudio *weakSelf = self;
-    NSError *error = nil;
-    reader = [AVAssetReader assetReaderWithAsset:self.asset error:&error];
-    
-    NSMutableDictionary *outputSettings = [NSMutableDictionary dictionary];
-    [outputSettings setObject: [NSNumber numberWithInt:kCVPixelFormatType_32BGRA]  forKey: (NSString*)kCVPixelBufferPixelFormatTypeKey];
-    // Maybe set alwaysCopiesSampleData to NO on iOS 5.0 for faster video decoding
-    AVAssetReaderTrackOutput *readerVideoTrackOutput = [AVAssetReaderTrackOutput assetReaderTrackOutputWithTrack:[[self.asset tracksWithMediaType:AVMediaTypeVideo] objectAtIndex:0] outputSettings:outputSettings];
-    [reader addOutput:readerVideoTrackOutput];
-    
     AVAssetReaderTrackOutput *readerAudioTrackOutput = nil;
-    NSArray *audioTracks = [self.asset tracksWithMediaType:AVMediaTypeAudio];
-    BOOL hasAudioTraks = [audioTracks count] > 0;
-    BOOL shouldPlayAudio = hasAudioTraks && self.playSound;
-    BOOL shouldRecordAudioTrack = (hasAudioTraks && (weakSelf.audioEncodingTarget != nil));
-    
-    if (shouldRecordAudioTrack || shouldPlayAudio){
-        audioEncodingIsFinished = NO;
-        
-        // This might need to be extended to handle movies with more than one audio track
-        AVAssetTrack* audioTrack = [audioTracks objectAtIndex:0];
-        NSDictionary *audioReadSettings = [NSDictionary dictionaryWithObjectsAndKeys:
-                                           [NSNumber numberWithInt:kAudioFormatLinearPCM], AVFormatIDKey,
-                                           [NSNumber numberWithFloat:44100.0], AVSampleRateKey,
-                                           [NSNumber numberWithInt:16], AVLinearPCMBitDepthKey,
-                                           [NSNumber numberWithBool:NO], AVLinearPCMIsNonInterleaved,
-                                           [NSNumber numberWithBool:NO], AVLinearPCMIsFloatKey,
-                                           [NSNumber numberWithBool:NO], AVLinearPCMIsBigEndianKey,
-                                           nil];
-        
-        readerAudioTrackOutput = [AVAssetReaderTrackOutput assetReaderTrackOutputWithTrack:audioTrack outputSettings:audioReadSettings];
-        [reader addOutput:readerAudioTrackOutput];
-        
-        if (shouldPlayAudio){
-            if (audio_queue == nil){
-                audio_queue = dispatch_queue_create("GPUAudioQueue", nil);
-            }
-            
-            if (audioPlayer == nil){
-                audioPlayer = [[GPUImageAudioPlayer alloc] init];
-                [audioPlayer initAudio];
-                [audioPlayer startPlaying];
-            }
-        }
-    }
-    
-    if (shouldRecordAudioTrack) {
-        [self.audioEncodingTarget setShouldInvalidateAudioSampleWhenDone:YES];
-    }
+    AVAssetReaderTrackOutput *readerVideoTrackOutput = nil;
+    BOOL hasAudioTraks = NO;
+    BOOL shouldPlayAudio = NO;
+    BOOL shouldRecordAudioTrack = NO;
     
     @synchronized(self) {
+        NSError *error = nil;
+        reader = [AVAssetReader assetReaderWithAsset:self.asset error:&error];
+        
+        NSMutableDictionary *outputSettings = [NSMutableDictionary dictionary];
+        [outputSettings setObject: [NSNumber numberWithInt:kCVPixelFormatType_32BGRA]  forKey: (NSString*)kCVPixelBufferPixelFormatTypeKey];
+        // Maybe set alwaysCopiesSampleData to NO on iOS 5.0 for faster video decoding
+        readerVideoTrackOutput = [AVAssetReaderTrackOutput assetReaderTrackOutputWithTrack:[[self.asset tracksWithMediaType:AVMediaTypeVideo] objectAtIndex:0] outputSettings:outputSettings];
+        [reader addOutput:readerVideoTrackOutput];
+        
+        NSArray *audioTracks = [self.asset tracksWithMediaType:AVMediaTypeAudio];
+        hasAudioTraks = [audioTracks count] > 0;
+        shouldPlayAudio = hasAudioTraks && self.playSound;
+        shouldRecordAudioTrack = (hasAudioTraks && (weakSelf.audioEncodingTarget != nil));
+        
+        if (shouldRecordAudioTrack || shouldPlayAudio){
+            audioEncodingIsFinished = NO;
+            
+            // This might need to be extended to handle movies with more than one audio track
+            AVAssetTrack* audioTrack = [audioTracks objectAtIndex:0];
+            NSDictionary *audioReadSettings = [NSDictionary dictionaryWithObjectsAndKeys:
+                                               [NSNumber numberWithInt:kAudioFormatLinearPCM], AVFormatIDKey,
+                                               [NSNumber numberWithFloat:44100.0], AVSampleRateKey,
+                                               [NSNumber numberWithInt:16], AVLinearPCMBitDepthKey,
+                                               [NSNumber numberWithBool:NO], AVLinearPCMIsNonInterleaved,
+                                               [NSNumber numberWithBool:NO], AVLinearPCMIsFloatKey,
+                                               [NSNumber numberWithBool:NO], AVLinearPCMIsBigEndianKey,
+                                               nil];
+            
+            readerAudioTrackOutput = [AVAssetReaderTrackOutput assetReaderTrackOutputWithTrack:audioTrack outputSettings:audioReadSettings];
+            [reader addOutput:readerAudioTrackOutput];
+            
+            if (shouldPlayAudio){
+                if (audio_queue == nil){
+                    audio_queue = dispatch_queue_create("GPUAudioQueue", nil);
+                }
+                
+                if (audioPlayer == nil){
+                    audioPlayer = [[GPUImageAudioPlayer alloc] init];
+                    [audioPlayer initAudio];
+                    [audioPlayer startPlaying];
+                }
+            }
+        }
+        
+        if (shouldRecordAudioTrack) {
+            [self.audioEncodingTarget setShouldInvalidateAudioSampleWhenDone:YES];
+        }
+        
         if ([reader startReading] == NO)
         {
             NSLog(@"Error reading from file at URL: %@", weakSelf.url);
