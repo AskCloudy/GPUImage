@@ -262,13 +262,17 @@
 
 - (BOOL)readNextVideoFrameFromOutput:(AVAssetReaderTrackOutput *)readerVideoTrackOutput;
 {
-    if (reader.status == AVAssetReaderStatusReading)
-    {
-        CMSampleBufferRef sampleBufferRef;
-        @synchronized(self) {
+    CMSampleBufferRef sampleBufferRef;
+    AVAssetReaderStatus readerStatus;
+    @synchronized(self) {
+        readerStatus = reader.status;
+        if (readerStatus == AVAssetReaderStatusReading) {
             sampleBufferRef = [readerVideoTrackOutput copyNextSampleBuffer];
         }
-        
+    }
+    
+    if (readerStatus == AVAssetReaderStatusReading)
+    {
         if (sampleBufferRef)
         {
             BOOL renderVideoFrame = YES;
