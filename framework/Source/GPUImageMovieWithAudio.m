@@ -94,7 +94,7 @@
     
     if ([GPUImageContext supportsFastTextureUpload])
     {
-        CFRelease(coreVideoTextureCache);
+        CFRelease(coreVideoTextureCache); // TODO: this can crash - maybe force dealloc before setting up new gpuimagemoviewithaudio?
     }
 }
 
