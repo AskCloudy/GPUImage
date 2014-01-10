@@ -125,7 +125,7 @@
     GPUImageMovieWithAudio __block *blockSelf = self;
     
     [inputAsset loadValuesAsynchronouslyForKeys:[NSArray arrayWithObject:@"tracks"] completionHandler: ^{
-        runSynchronouslyOnVideoProcessingQueue(^{
+//        runSynchronouslyOnVideoProcessingQueue(^{
             NSError *error = nil;
             AVKeyValueStatus tracksStatus = [inputAsset statusOfValueForKey:@"tracks" error:&error];
             if (!tracksStatus == AVKeyValueStatusLoaded)
@@ -135,7 +135,7 @@
             blockSelf.asset = inputAsset;
             [blockSelf processAsset];
             blockSelf = nil;
-        });
+//        });
     }];
 }
 
@@ -221,19 +221,20 @@
         assetStartTime = 0.0;
         while (!shouldStopProcessing && reader.status == AVAssetReaderStatusReading && (!_shouldRepeat || keepLooping))
         {
-            [weakSelf readNextVideoFrameFromOutput:readerVideoTrackOutput];
-            
-            if (shouldPlayAudio && (!audioEncodingIsFinished)){
+            runSynchronouslyOnVideoProcessingQueue(^{
+                [weakSelf readNextVideoFrameFromOutput:readerVideoTrackOutput];
                 
-                if (audioPlayer.readyForMoreBytes) {
-                    //process next audio sample if the player is ready to receive it
+                if (shouldPlayAudio && (!audioEncodingIsFinished)){
+                    
+                    if (audioPlayer.readyForMoreBytes) {
+                        //process next audio sample if the player is ready to receive it
+                        [weakSelf readNextAudioSampleFromOutput:readerAudioTrackOutput];
+                    }
+                    
+                } else if (shouldRecordAudioTrack && (!audioEncodingIsFinished)) {
                     [weakSelf readNextAudioSampleFromOutput:readerAudioTrackOutput];
                 }
-                
-            } else if (shouldRecordAudioTrack && (!audioEncodingIsFinished)) {
-                [weakSelf readNextAudioSampleFromOutput:readerAudioTrackOutput];
-            }
-            
+            });
         }
         
         shouldStopProcessing = NO;
@@ -298,9 +299,9 @@
             
             if (renderVideoFrame){
                 __unsafe_unretained GPUImageMovieWithAudio *weakSelf = self;
-                runSynchronouslyOnVideoProcessingQueue(^{
+//                runSynchronouslyOnVideoProcessingQueue(^{
                     [weakSelf processMovieFrame:sampleBufferRef];
-                });
+//                });
             }
             
             CMSampleBufferInvalidate(sampleBufferRef);
@@ -345,11 +346,13 @@
                 dispatch_async(audio_queue, ^{
                     [audioPlayer copyBuffer:audioSampleBufferRef];
                     
+                    CMSampleBufferInvalidate(audioSampleBufferRef);
                     CFRelease(audioSampleBufferRef);
                 });
                 
             } else if (self.audioEncodingTarget != nil && !audioEncodingIsFinished){
                 [self.audioEncodingTarget processAudioBuffer:audioSampleBufferRef];
+                CMSampleBufferInvalidate(audioSampleBufferRef);
             }
             
             CFRelease(audioSampleBufferRef);
@@ -368,11 +371,11 @@
     CMTime currentSampleTime = CMSampleBufferGetOutputPresentationTimeStamp(movieSampleBuffer);
     CVImageBufferRef movieFrame = CMSampleBufferGetImageBuffer(movieSampleBuffer);
     
-    int bufferHeight = CVPixelBufferGetHeight(movieFrame);
+    int bufferHeight = (int)CVPixelBufferGetHeight(movieFrame);
 #if TARGET_IPHONE_SIMULATOR
-    int bufferWidth = CVPixelBufferGetBytesPerRow(movieFrame) / 4; // This works around certain movie frame types on the Simulator (see https://github.com/BradLarson/GPUImage/issues/424)
+    int bufferWidth = (int)CVPixelBufferGetBytesPerRow(movieFrame) / 4; // This works around certain movie frame types on the Simulator (see https://github.com/BradLarson/GPUImage/issues/424)
 #else
-    int bufferWidth = CVPixelBufferGetWidth(movieFrame);
+    int bufferWidth = (int)CVPixelBufferGetWidth(movieFrame);
 #endif
     
     CFAbsoluteTime startTime = CFAbsoluteTimeGetCurrent();
