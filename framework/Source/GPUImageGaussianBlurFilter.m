@@ -40,6 +40,11 @@
 
 + (NSString *)vertexShaderForStandardBlurOfRadius:(NSUInteger)blurRadius sigma:(CGFloat)sigma;
 {
+    if (blurRadius < 1)
+    {
+        return kGPUImageVertexShaderString;
+    }
+    
 //    NSLog(@"Max varyings: %d", [GPUImageContext maximumVaryingVectorsForThisDevice]);
     NSMutableString *shaderString = [[NSMutableString alloc] init];
 
@@ -85,6 +90,11 @@
 
 + (NSString *)fragmentShaderForStandardBlurOfRadius:(NSUInteger)blurRadius sigma:(CGFloat)sigma;
 {
+    if (blurRadius < 1)
+    {
+        return kGPUImagePassthroughFragmentShaderString;
+    }
+
     // First, generate the normal Gaussian weights for a given sigma
     GLfloat *standardGaussianWeights = calloc(blurRadius + 1, sizeof(GLfloat));
     GLfloat sumOfWeights = 0.0;
@@ -116,11 +126,11 @@
     [shaderString appendFormat:@"\
      uniform sampler2D inputImageTexture;\n\
      \n\
-     varying highp vec2 blurCoordinates[%d];\n\
+     varying highp vec2 blurCoordinates[%lu];\n\
      \n\
      void main()\n\
      {\n\
-        lowp vec4 sum = vec4(0.0);\n", (blurRadius * 2 + 1) ];
+        lowp vec4 sum = vec4(0.0);\n", (unsigned long)(blurRadius * 2 + 1) ];
 #else
     [shaderString appendFormat:@"\
      uniform sampler2D inputImageTexture;\n\
@@ -157,10 +167,11 @@
 
 + (NSString *)vertexShaderForOptimizedBlurOfRadius:(NSUInteger)blurRadius sigma:(CGFloat)sigma;
 {
-    if (blurRadius == 0)
+    if (blurRadius < 1)
     {
-        return nil;
+        return kGPUImageVertexShaderString;
     }
+
     // First, generate the normal Gaussian weights for a given sigma
     GLfloat *standardGaussianWeights = calloc(blurRadius + 1, sizeof(GLfloat));
     GLfloat sumOfWeights = 0.0;
@@ -234,10 +245,11 @@
 
 + (NSString *)fragmentShaderForOptimizedBlurOfRadius:(NSUInteger)blurRadius sigma:(CGFloat)sigma;
 {
-    if (blurRadius == 0)
+    if (blurRadius < 1)
     {
-        return nil;
+        return kGPUImagePassthroughFragmentShaderString;
     }
+    
     // First, generate the normal Gaussian weights for a given sigma
     GLfloat *standardGaussianWeights = calloc(blurRadius + 1, sizeof(GLfloat));
     GLfloat sumOfWeights = 0.0;
@@ -274,11 +286,11 @@
      uniform highp float texelWidthOffset;\n\
      uniform highp float texelHeightOffset;\n\
      \n\
-     varying highp vec2 blurCoordinates[%d];\n\
+     varying highp vec2 blurCoordinates[%lu];\n\
      \n\
      void main()\n\
      {\n\
-        lowp vec4 sum = vec4(0.0);\n", 1 + (numberOfOptimizedOffsets * 2) ];
+        lowp vec4 sum = vec4(0.0);\n", (unsigned long)(1 + (numberOfOptimizedOffsets * 2)) ];
 #else
     [shaderString appendFormat:@"\
      uniform sampler2D inputImageTexture;\n\

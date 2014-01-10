@@ -49,9 +49,9 @@
 
 + (NSString *)fragmentShaderForOptimizedBlurOfRadius:(NSUInteger)blurRadius sigma:(CGFloat)sigma;
 {
-    if (blurRadius == 0)
+    if (blurRadius < 1)
     {
-        return nil;
+        return kGPUImagePassthroughFragmentShaderString;
     }
 
     NSUInteger numberOfOptimizedOffsets = MIN(blurRadius / 2 + (blurRadius % 2), 7);
@@ -66,11 +66,11 @@
      uniform highp float texelWidthOffset;\n\
      uniform highp float texelHeightOffset;\n\
      \n\
-     varying highp vec2 blurCoordinates[%d];\n\
+     varying highp vec2 blurCoordinates[%lu];\n\
      \n\
      void main()\n\
      {\n\
-     lowp vec4 sum = vec4(0.0);\n", 1 + (numberOfOptimizedOffsets * 2) ];
+     lowp vec4 sum = vec4(0.0);\n", (unsigned long)(1 + (numberOfOptimizedOffsets * 2)) ];
 #else
     [shaderString appendFormat:@"\
      uniform sampler2D inputImageTexture;\n\
