@@ -235,26 +235,28 @@
 
 - (void)processAsset
 {
-    reader = [self createAssetReader];
-    
     AVAssetReaderOutput *readerVideoTrackOutput = nil;
     AVAssetReaderOutput *readerAudioTrackOutput = nil;
     
-    audioEncodingIsFinished = YES;
-    for( AVAssetReaderOutput *output in reader.outputs ) {
-        if( [output.mediaType isEqualToString:AVMediaTypeAudio] ) {
-            audioEncodingIsFinished = NO;
-            readerAudioTrackOutput = output;
+    @synchronized(self) {
+        reader = [self createAssetReader];
+        
+        audioEncodingIsFinished = YES;
+        for( AVAssetReaderOutput *output in reader.outputs ) {
+            if( [output.mediaType isEqualToString:AVMediaTypeAudio] ) {
+                audioEncodingIsFinished = NO;
+                readerAudioTrackOutput = output;
+            }
+            else if( [output.mediaType isEqualToString:AVMediaTypeVideo] ) {
+                readerVideoTrackOutput = output;
+            }
         }
-        else if( [output.mediaType isEqualToString:AVMediaTypeVideo] ) {
-            readerVideoTrackOutput = output;
+        
+        if ([reader startReading] == NO)
+        {
+            NSLog(@"Error reading from file at URL: %@", self.url);
+            return;
         }
-    }
-    
-    if ([reader startReading] == NO)
-    {
-        NSLog(@"Error reading from file at URL: %@", self.url);
-        return;
     }
     
     __unsafe_unretained GPUImageMovie *weakSelf = self;
@@ -286,7 +288,9 @@
         
         if (reader.status == AVAssetWriterStatusCompleted) {
             
-            [reader cancelReading];
+            @synchronized(self) {
+                [reader cancelReading];
+            }
             
             if (keepLooping) {
                 reader = nil;
@@ -349,9 +353,17 @@
 
 - (BOOL)readNextVideoFrameFromOutput:(AVAssetReaderOutput *)readerVideoTrackOutput;
 {
-    if (reader.status == AVAssetReaderStatusReading && ! videoEncodingIsFinished)
+    CMSampleBufferRef sampleBufferRef;
+    AVAssetReaderStatus readerStatus;
+    @synchronized(self) {
+        readerStatus = reader.status;
+        if (readerStatus == AVAssetReaderStatusReading) {
+            sampleBufferRef = [readerVideoTrackOutput copyNextSampleBuffer];
+        }
+    }
+    
+    if (readerStatus == AVAssetReaderStatusReading && ! videoEncodingIsFinished)
     {
-        CMSampleBufferRef sampleBufferRef = [readerVideoTrackOutput copyNextSampleBuffer];
         if (sampleBufferRef)
         {
             //NSLog(@"read a video frame: %@", CFBridgingRelease(CMTimeCopyDescription(kCFAllocatorDefault, CMSampleBufferGetOutputPresentationTimeStamp(sampleBufferRef))));
@@ -416,7 +428,11 @@
 {
     if (reader.status == AVAssetReaderStatusReading && ! audioEncodingIsFinished)
     {
-        CMSampleBufferRef audioSampleBufferRef = [readerAudioTrackOutput copyNextSampleBuffer];
+        CMSampleBufferRef audioSampleBufferRef;
+        @synchronized(self) {
+            audioSampleBufferRef = [readerAudioTrackOutput copyNextSampleBuffer];
+        }
+        
         if (audioSampleBufferRef)
         {
             //NSLog(@"read an audio frame: %@", CFBridgingRelease(CMTimeCopyDescription(kCFAllocatorDefault, CMSampleBufferGetOutputPresentationTimeStamp(audioSampleBufferRef))));
@@ -663,10 +679,12 @@
 
 - (void)cancelProcessing
 {
-    if (reader) {
-        [reader cancelReading];
+    @synchronized(self) {
+        if (reader) {
+            [reader cancelReading];
+        }
+        [self endProcessing];
     }
-    [self endProcessing];
 }
 
 - (void)convertYUVToRGBOutput;
