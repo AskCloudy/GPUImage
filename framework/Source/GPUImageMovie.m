@@ -235,28 +235,26 @@
 
 - (void)processAsset
 {
+    reader = [self createAssetReader];
+    
     AVAssetReaderOutput *readerVideoTrackOutput = nil;
     AVAssetReaderOutput *readerAudioTrackOutput = nil;
     
-    @synchronized(self) {
-        reader = [self createAssetReader];
-        
-        audioEncodingIsFinished = YES;
-        for( AVAssetReaderOutput *output in reader.outputs ) {
-            if( [output.mediaType isEqualToString:AVMediaTypeAudio] ) {
-                audioEncodingIsFinished = NO;
-                readerAudioTrackOutput = output;
-            }
-            else if( [output.mediaType isEqualToString:AVMediaTypeVideo] ) {
-                readerVideoTrackOutput = output;
-            }
+    audioEncodingIsFinished = YES;
+    for( AVAssetReaderOutput *output in reader.outputs ) {
+        if( [output.mediaType isEqualToString:AVMediaTypeAudio] ) {
+            audioEncodingIsFinished = NO;
+            readerAudioTrackOutput = output;
         }
-        
-        if ([reader startReading] == NO)
-        {
-            NSLog(@"Error reading from file at URL: %@", self.url);
-            return;
+        else if( [output.mediaType isEqualToString:AVMediaTypeVideo] ) {
+            readerVideoTrackOutput = output;
         }
+    }
+    
+    if ([reader startReading] == NO)
+    {
+        NSLog(@"Error reading from file at URL: %@", self.url);
+        return;
     }
     
     __unsafe_unretained GPUImageMovie *weakSelf = self;
@@ -428,10 +426,7 @@
 {
     if (reader.status == AVAssetReaderStatusReading && ! audioEncodingIsFinished)
     {
-        CMSampleBufferRef audioSampleBufferRef;
-        @synchronized(self) {
-            audioSampleBufferRef = [readerAudioTrackOutput copyNextSampleBuffer];
-        }
+        CMSampleBufferRef audioSampleBufferRef = [readerAudioTrackOutput copyNextSampleBuffer];
         
         if (audioSampleBufferRef)
         {
