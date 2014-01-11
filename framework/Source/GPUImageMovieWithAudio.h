@@ -54,4 +54,6 @@
 - (void)cancelProcessing;
 - (void)processMovieFrame:(CMSampleBufferRef)movieSampleBuffer;
 
+- (void)releaseResources;
+
 @end
