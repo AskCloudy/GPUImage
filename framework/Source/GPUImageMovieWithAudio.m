@@ -351,11 +351,16 @@
         return NO;
     }
     
-    if (reader.status == AVAssetReaderStatusReading) {
-        CMSampleBufferRef audioSampleBufferRef;
-        @synchronized(self) {
+    CMSampleBufferRef audioSampleBufferRef;
+    AVAssetReaderStatus readerStatus;
+    @synchronized(self) {
+        readerStatus = reader.status;
+        if (readerStatus == AVAssetReaderStatusReading) {
             audioSampleBufferRef = [readerAudioTrackOutput copyNextSampleBuffer];
         }
+    }
+    
+    if (readerStatus == AVAssetReaderStatusReading) {
         
         if (audioSampleBufferRef) {
             
