@@ -365,14 +365,15 @@
         if (audioSampleBufferRef) {
             
             if (self.playSound){
-                CFRetain(audioSampleBufferRef);
-                dispatch_async(audio_queue, ^{
-                    [audioPlayer copyBuffer:audioSampleBufferRef];
-                    
-                    CMSampleBufferInvalidate(audioSampleBufferRef);
-                    CFRelease(audioSampleBufferRef);
-                });
-                
+                if (audio_queue && !haveResourcesBeenReleased) {
+                    CFRetain(audioSampleBufferRef);
+                    dispatch_async(audio_queue, ^{
+                        [audioPlayer copyBuffer:audioSampleBufferRef];
+                        
+                        CMSampleBufferInvalidate(audioSampleBufferRef);
+                        CFRelease(audioSampleBufferRef);
+                    });
+                }
             } else if (self.audioEncodingTarget != nil && !audioEncodingIsFinished){
                 [self.audioEncodingTarget processAudioBuffer:audioSampleBufferRef];
                 CMSampleBufferInvalidate(audioSampleBufferRef);
