@@ -25,6 +25,9 @@
     const GLfloat *_preferredConversion;
     
     int imageBufferWidth, imageBufferHeight;
+    
+    NSRecursiveLock *videoReadLock;
+    NSRecursiveLock *audioReadLock;
 }
 
 - (void)processAsset;
@@ -56,6 +59,9 @@
     self.url = url;
     self.asset = nil;
     
+    videoReadLock = [[NSRecursiveLock alloc] init];
+    audioReadLock = [[NSRecursiveLock alloc] init];
+    
     return self;
 }
 
@@ -70,6 +76,9 @@
     
     self.url = nil;
     self.asset = asset;
+    
+    videoReadLock = [[NSRecursiveLock alloc] init];
+    audioReadLock = [[NSRecursiveLock alloc] init];
     
     return self;
 }
@@ -86,6 +95,9 @@
     self.url = nil;
     self.asset = nil;
     self.playerItem = playerItem;
+    
+    videoReadLock = [[NSRecursiveLock alloc] init];
+    audioReadLock = [[NSRecursiveLock alloc] init];
     
     return self;
 }
@@ -286,9 +298,13 @@
         
         if (reader.status == AVAssetWriterStatusCompleted) {
             
-            @synchronized(self) {
-                [reader cancelReading];
-            }
+            [videoReadLock lock];
+            [audioReadLock lock];
+            
+            [reader cancelReading];
+            
+            [videoReadLock unlock];
+            [audioReadLock unlock];
             
             if (keepLooping) {
                 reader = nil;
@@ -351,14 +367,15 @@
 
 - (BOOL)readNextVideoFrameFromOutput:(AVAssetReaderOutput *)readerVideoTrackOutput;
 {
+    [videoReadLock lock];
+    
     CMSampleBufferRef sampleBufferRef;
-    AVAssetReaderStatus readerStatus;
-    @synchronized(self) {
-        readerStatus = reader.status;
-        if (readerStatus == AVAssetReaderStatusReading) {
-            sampleBufferRef = [readerVideoTrackOutput copyNextSampleBuffer];
-        }
+    AVAssetReaderStatus readerStatus = reader.status;
+    if (readerStatus == AVAssetReaderStatusReading) {
+        sampleBufferRef = [readerVideoTrackOutput copyNextSampleBuffer];
     }
+    
+    [videoReadLock unlock];
     
     if (readerStatus == AVAssetReaderStatusReading && ! videoEncodingIsFinished)
     {
@@ -424,10 +441,18 @@
 
 - (BOOL)readNextAudioSampleFromOutput:(AVAssetReaderOutput *)readerAudioTrackOutput;
 {
-    if (reader.status == AVAssetReaderStatusReading && ! audioEncodingIsFinished)
+    [audioReadLock lock];
+    
+    CMSampleBufferRef audioSampleBufferRef;
+    AVAssetReaderStatus readerStatus = reader.status;
+    if (readerStatus == AVAssetReaderStatusReading) {
+        audioSampleBufferRef = [readerAudioTrackOutput copyNextSampleBuffer];
+    }
+    
+    [audioReadLock unlock];
+    
+    if (readerStatus == AVAssetReaderStatusReading && ! audioEncodingIsFinished)
     {
-        CMSampleBufferRef audioSampleBufferRef = [readerAudioTrackOutput copyNextSampleBuffer];
-        
         if (audioSampleBufferRef)
         {
             //NSLog(@"read an audio frame: %@", CFBridgingRelease(CMTimeCopyDescription(kCFAllocatorDefault, CMSampleBufferGetOutputPresentationTimeStamp(audioSampleBufferRef))));
@@ -674,12 +699,17 @@
 
 - (void)cancelProcessing
 {
-    @synchronized(self) {
-        if (reader) {
-            [reader cancelReading];
-        }
-        [self endProcessing];
+    [videoReadLock lock];
+    [audioReadLock lock];
+    
+    if (reader) {
+        [reader cancelReading];
     }
+    
+    [videoReadLock unlock];
+    [audioReadLock unlock];
+    
+    [self endProcessing];
 }
 
 - (void)convertYUVToRGBOutput;
